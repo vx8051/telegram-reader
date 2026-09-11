@@ -1,0 +1,27 @@
+# Build output
+build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# IDE
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+
+# Machine-specific SDK location
+local.properties
+
+# Signing material — never commit
+*.jks
+*.keystore
+keystore.properties
+
+# Prebuilt TDLib (~40 MB) — fetched by scripts/fetch-tdlib.sh
+app/libs/tdlib.aar

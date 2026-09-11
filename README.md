@@ -1,0 +1,107 @@
+# Telegram Reader
+
+Android app that reads new posts from selected Telegram channels aloud — in the foreground
+or in the background — using the device's text-to-speech engine.
+
+It logs in with **your own Telegram account** through [TDLib](https://github.com/tdlib/td),
+so it works for any channel you are subscribed to (public or private) and receives posts
+in real time via MTProto push, not polling.
+
+## How it works
+
+```
+Telegram ──MTProto──▶ TDLib (libtdjni.so) ──updates──▶ ReaderService (foreground)
+                                                          │  filters UpdateNewMessage
+                                                          │  by selected chat ids
+                                                          ▼
+                                                    Speaker (TextToSpeech)
+                                                    queue · audio focus · wake lock
+```
+
+| Piece | Where |
+|---|---|
+| TDLib wrapper (coroutines / Flow) | `telegram/TdlibClient.kt` |
+| Channel list (channels the account has joined) | `telegram/ChannelRepository.kt` |
+| Message → speech text (captions, polls, URL/emoji stripping, chunking) | `telegram/MessageSpeech.kt` |
+| Foreground service (notification with Pause / Skip / Stop) | `service/ReaderService.kt` |
+| TTS queue with audio-focus ducking | `service/Speaker.kt` |
+| Restart after reboot | `service/BootReceiver.kt` |
+| Per-post language detection (TextClassifier + script heuristic) | `service/LanguageDetector.kt` |
+| Compose UI (credentials → sign-in → home / settings) | `ui/` |
+
+## Prerequisites
+
+1. **Telegram API credentials** — go to <https://my.telegram.org> → *API development tools*,
+   create an app, note `api_id` and `api_hash`. You'll enter them in the app on first launch.
+2. JDK 17, Android SDK (platform 35), and the prebuilt TDLib AAR:
+
+   ```sh
+   ./scripts/fetch-tdlib.sh          # downloads app/libs/tdlib.aar (~40 MB, git-ignored)
+   ```
+
+   The AAR comes from [FaiBah/TDLibAndroidPrebuilt](https://github.com/FaiBah/TDLibAndroidPrebuilt)
+   (TDLib 1.8.67, all four ABIs, standard `org.drinkless.tdlib` Java API). Pin a different
+   release with `TDLIB_TAG=<tag> ./scripts/fetch-tdlib.sh`.
+
+## Build & install
+
+```sh
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The debug APK is ~110 MB because it bundles TDLib for four ABIs. For a smaller build add
+`ndk { abiFilters += "arm64-v8a" }` to `defaultConfig` in `app/build.gradle.kts`, or build
+a signed release (`assembleRelease`, R8 enabled — keep rules for TDLib are in `proguard-rules.pro`).
+
+## Using the app
+
+1. Enter `api_id` / `api_hash`.
+2. Sign in with your phone number → code (→ 2FA password if enabled).
+3. Pick the channels to read from the **Channels** dropdown (only channels you've joined are listed;
+   tap refresh after joining new ones in Telegram).
+4. Tap **▶**. A persistent notification appears with Pause / Skip / Stop and shows what is being
+   read; reading continues with the screen off and the app in the background. **Test** reads the
+   newest post from the selected channels so you can check the voice.
+5. Tap **Allow background activity** when prompted so Android doesn't kill the connection
+   (battery-optimisation exemption). On some OEM ROMs (Xiaomi, Huawei, Samsung…) you may also
+   need to lock the app in "recent apps" or disable their extra battery managers.
+
+Settings (gear icon): speech rate, pitch, voice languages, lead-in pause, announce channel name,
+read posts that arrived while offline, mark as read in Telegram, auto-start after reboot.
+
+**Voice languages** takes a comma-separated list of BCP-47 tags, e.g. `en-US, uk-UA`. With one tag
+every post uses that voice; with several, each post's language is detected on-device (Android's
+`TextClassifier`, with a script-based fallback that also tells Ukrainian from Russian) and the matching
+voice is used. The first tag is the fallback. Empty = device default. If a voice is missing, install it
+under Settings → Text-to-speech → your engine → Install voice data.
+
+**Lead-in pause** queues a short silence (default 0.7 s) before each post. Bluetooth and car head
+units drop the first fraction of a second after an audio stream starts; the pause absorbs that so
+the first word isn't clipped. By default it applies only when audio is routed to Bluetooth / USB /
+car output; turn off *Only on external audio* to apply it always.
+
+**Mark as read in Telegram** (off by default) calls `viewMessages` once a post has been spoken to
+the end, so it shows as read on your other devices. Skipped or interrupted posts stay unread.
+
+## Behaviour notes
+
+- Posts arriving while the reader was stopped are skipped by default (anything older than 5 min
+  when it arrives) — enable *Read posts that arrived while offline* to hear the backlog.
+- Media albums are announced once (the first item carries the caption).
+- Stickers are ignored; photos/videos/files are announced with their caption; polls are read with
+  their options.
+- URLs are replaced with the word "link"; emoji and markdown symbols are stripped.
+- Audio focus is requested with *transient, may duck*, so music lowers while a post is read; an
+  incoming call or another exclusive audio app pauses reading until focus returns.
+- Muting a channel in Telegram has no effect here — the app reads every channel you've selected.
+- "Recently read" keeps the last 10 spoken posts in memory; it is cleared when the process ends.
+- The TTS engine and voice come from the phone's text-to-speech settings; the app sets language,
+  rate and pitch. For better Ukrainian, install Google Speech Services or RHVoice and select it as
+  the system engine.
+
+## Not supported (yet)
+
+- Accounts that require e-mail login (Telegram's login-email feature) — sign in from the official
+  app once, then the phone/code flow works.
+- QR-code login.
