@@ -81,13 +81,52 @@ Notes:
 ## Build & install
 
 ```sh
+./scripts/fetch-tdlib.sh          # once: downloads app/libs/tdlib.aar
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The debug APK is ~110 MB because it bundles TDLib for four ABIs. For a smaller build add
-`ndk { abiFilters += "arm64-v8a" }` to `defaultConfig` in `app/build.gradle.kts`, or build
-a signed release (`assembleRelease`, R8 enabled — keep rules for TDLib are in `proguard-rules.pro`).
+Release builds are split per ABI (`assembleRelease` → `app/build/outputs/apk/release/`):
+`arm64-v8a` (~25 MB, most phones since 2016), `armeabi-v7a`, `x86_64`, and a `universal` APK
+(~96 MB) containing all of them. R8 is enabled; keep rules for TDLib are in `proguard-rules.pro`.
+
+### Signing
+
+Without a keystore, `assembleRelease` signs with the debug key. For a real release key, create
+`keystore.properties` in the project root (git-ignored):
+
+```properties
+storeFile=release.jks
+storePassword=…
+keyAlias=telegram-reader
+keyPassword=…
+```
+
+and generate the keystore with
+`keytool -genkeypair -keystore release.jks -alias telegram-reader -keyalg RSA -keysize 2048 -validity 10000`.
+Keep the keystore safe: an APK signed with a different key can't be installed over an existing one.
+
+### Releases on GitHub
+
+[`release.yml`](.github/workflows/release.yml) builds signed APKs and publishes them as a GitHub
+Release whenever a `v*` tag is pushed:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+It needs four repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `KEYSTORE_BASE64` | `base64 -i release.jks` (single line) |
+| `KEYSTORE_PASSWORD` | keystore password |
+| `KEY_ALIAS` | `telegram-reader` |
+| `KEY_PASSWORD` | key password |
+
+The version name comes from the tag (`v1.2.3` → `1.2.3`); the version code is the workflow run
+number. [`ci.yml`](.github/workflows/ci.yml) builds a debug APK on every push to `main`.
 
 ## Using the app
 
