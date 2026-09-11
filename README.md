@@ -31,8 +31,8 @@ Telegram ──MTProto──▶ TDLib (libtdjni.so) ──updates──▶ Reade
 
 ## Prerequisites
 
-1. **Telegram API credentials** — go to <https://my.telegram.org> → *API development tools*,
-   create an app, note `api_id` and `api_hash`. You'll enter them in the app on first launch.
+1. **Telegram API credentials** (`api_id` / `api_hash`) — see [Getting api_id and api_hash](#getting-api_id-and-api_hash)
+   below. You'll enter them in the app on first launch.
 2. JDK 17, Android SDK (platform 35), and the prebuilt TDLib AAR:
 
    ```sh
@@ -42,6 +42,41 @@ Telegram ──MTProto──▶ TDLib (libtdjni.so) ──updates──▶ Reade
    The AAR comes from [FaiBah/TDLibAndroidPrebuilt](https://github.com/FaiBah/TDLibAndroidPrebuilt)
    (TDLib 1.8.67, all four ABIs, standard `org.drinkless.tdlib` Java API). Pin a different
    release with `TDLIB_TAG=<tag> ./scripts/fetch-tdlib.sh`.
+
+## Getting api_id and api_hash
+
+Telegram requires every third-party client to identify itself with an application id and hash
+tied to a Telegram account. They are free and take a couple of minutes to obtain.
+
+1. Open <https://my.telegram.org> in a browser.
+2. Enter the phone number of your Telegram account in international format (e.g. `+380501234567`)
+   and click **Next**.
+3. Telegram sends a confirmation code **to the Telegram app** (as a message from "Telegram"),
+   not by SMS. Enter it on the website.
+4. Click **API development tools**.
+5. Fill in the form:
+   - **App title** — anything, e.g. `Telegram Reader`
+   - **Short name** — 5–32 Latin letters/digits, e.g. `tgreader`
+   - **URL** — optional, may be left empty
+   - **Platform** — `Android`
+   - **Description** — optional
+6. Click **Create application**.
+7. The next page shows **App api_id** (a number) and **App api_hash** (32 hexadecimal
+   characters). Copy both into the app's first screen.
+
+Notes:
+
+- One account can have only **one** application; if you've already created one, the same page
+  simply shows the existing credentials.
+- The form sometimes fails with a bare **ERROR** message. This is a known quirk of the site: wait a
+  few minutes and retry, try a different short name, use a different browser or network, or
+  disable VPN/ad-blockers. Some users report it works only from the mobile browser (or only from
+  desktop) — try both.
+- Keep `api_hash` private. It identifies your app to Telegram; anyone with it can present their
+  client as yours. It is **not** a login credential for your account, though — signing in still
+  requires the phone-number code (and 2FA password if enabled).
+- The credentials are stored only on the device, in the app's private storage, and never leave it
+  except in TDLib's connection to Telegram's servers.
 
 ## Build & install
 
