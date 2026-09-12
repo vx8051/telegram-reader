@@ -10,7 +10,13 @@ import com.telegramreader.app.service.ReaderState
 import com.telegramreader.app.telegram.Channel
 import com.telegramreader.app.telegram.MessageSpeech
 import com.telegramreader.app.telegram.TdException
+import android.speech.tts.TextToSpeech
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -28,6 +34,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     val paused: StateFlow<Boolean> = ReaderState.paused
     val history = ReaderState.history
     val nowSpeaking: StateFlow<String?> = ReaderState.nowSpeaking
+
+    data class TtsEngine(val packageName: String, val label: String)
+
+    /** Installed text-to-speech engines (queried once, off the main thread). */
+    val ttsEngines: StateFlow<List<TtsEngine>> = flow {
+        val probe = TextToSpeech(app, {})
+        try {
+            emit(probe.engines.map { TtsEngine(it.name, it.label) }.sortedBy { it.label })
+        } finally {
+            probe.shutdown()
+        }
+    }.flowOn(Dispatchers.IO).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()

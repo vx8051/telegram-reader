@@ -76,9 +76,9 @@ class Speaker(context: Context) {
 
     /** Set once [TextToSpeech] has initialised; re-applied when settings change. */
     @Volatile var rate = 1.0f
-        set(v) { field = v; tts.setSpeechRate(v) }
+        set(v) { field = v; if (ready) tts.setSpeechRate(v) }
     @Volatile var pitch = 1.0f
-        set(v) { field = v; tts.setPitch(v) }
+        set(v) { field = v; if (ready) tts.setPitch(v) }
     /** Silence (ms) queued before each item; 0 disables. */
     @Volatile var leadInMs = 0
     /** Apply the lead-in only when audio is routed to Bluetooth / USB / car. */
@@ -91,31 +91,58 @@ class Speaker(context: Context) {
         set(v) { field = v; if (ready) applyLanguage(null) }
     private var appliedLocale: Locale? = null
 
-    private val tts: TextToSpeech = TextToSpeech(appContext) { status ->
-        if (status != TextToSpeech.SUCCESS) {
-            _engineError.value = "Text-to-speech engine failed to initialise (status $status)"
-            Log.e(TAG, _engineError.value!!)
-            return@TextToSpeech
-        }
-        ready = true
-        applyLanguage(null)
-        tts.setSpeechRate(rate)
-        tts.setPitch(pitch)
-        tts.setAudioAttributes(audioAttrs)
-        _availableLanguages.value = try {
-            tts.availableLanguages.sortedBy { it.displayName }
-        } catch (e: Exception) { emptyList() }
-        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
-            override fun onDone(utteranceId: String?) = onChunkFinished(utteranceId)
-            @Deprecated("Deprecated in Java")
-            override fun onError(utteranceId: String?) = onChunkFinished(utteranceId)
-            override fun onError(utteranceId: String?, errorCode: Int) {
-                Log.w(TAG, "TTS error $errorCode for $utteranceId")
-                onChunkFinished(utteranceId)
+    /** TTS engine package name; empty = system default. Changing it re-creates the engine binding. */
+    @Volatile var engine: String = ""
+        set(v) {
+            if (field == v) return
+            field = v
+            synchronized(lock) {
+                interruptLocked()          // current item goes back to the head of the queue
+                ready = false
+                appliedLocale = null
+                tts.shutdown()
+                tts = createTts(v)
             }
-        })
-        synchronized(lock) { pumpLocked() }
+        }
+
+    private var tts: TextToSpeech = createTts("")
+
+    private fun createTts(enginePackage: String): TextToSpeech {
+        lateinit var created: TextToSpeech
+        val listener = TextToSpeech.OnInitListener { status -> onTtsInit(created, status) }
+        created = if (enginePackage.isBlank()) TextToSpeech(appContext, listener)
+        else TextToSpeech(appContext, listener, enginePackage)
+        return created
+    }
+
+    private fun onTtsInit(instance: TextToSpeech, status: Int) {
+        synchronized(lock) {
+            if (instance !== tts) return   // a stale engine finished initialising after being replaced
+            if (status != TextToSpeech.SUCCESS) {
+                _engineError.value = "Text-to-speech engine failed to initialise (status $status)"
+                Log.e(TAG, _engineError.value!!)
+                return
+            }
+            ready = true
+            applyLanguage(null)
+            tts.setSpeechRate(rate)
+            tts.setPitch(pitch)
+            tts.setAudioAttributes(audioAttrs)
+            _availableLanguages.value = try {
+                tts.availableLanguages.sortedBy { it.displayName }
+            } catch (e: Exception) { emptyList() }
+            tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) = onChunkFinished(utteranceId)
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) = onChunkFinished(utteranceId)
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    Log.w(TAG, "TTS error $errorCode for $utteranceId")
+                    onChunkFinished(utteranceId)
+                }
+            })
+            pumpLocked()
+        }
     }
 
     private fun applyLanguage(wanted: Locale?) {

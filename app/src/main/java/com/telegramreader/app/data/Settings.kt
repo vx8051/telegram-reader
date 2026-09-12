@@ -14,6 +14,8 @@ data class Prefs(
     val apiHash: String = "",
     /** Chat ids of the channels to read aloud. */
     val channelIds: Set<Long> = emptySet(),
+    /** TTS engine package name (e.g. com.github.olga_yakovleva.rhvoice.android); empty = system default. */
+    val ttsEngine: String = "",
     val speechRate: Float = 1.0f,
     val speechPitch: Float = 1.0f,
     /** Comma-separated BCP-47 tags in preference order; empty = device default. With several, each post's language is detected. */
@@ -51,6 +53,7 @@ class Settings(context: Context) {
         apiHash = sp.getString(K_API_HASH, "") ?: "",
         channelIds = (sp.getStringSet(K_CHANNELS, emptySet()) ?: emptySet())
             .mapNotNull { it.toLongOrNull() }.toSet(),
+        ttsEngine = sp.getString(K_ENGINE, "") ?: "",
         speechRate = sp.getFloat(K_RATE, 1.0f),
         speechPitch = sp.getFloat(K_PITCH, 1.0f),
         voiceLanguages = sp.getString(K_LANG, "") ?: "",
@@ -69,6 +72,7 @@ class Settings(context: Context) {
             .putInt(K_API_ID, next.apiId)
             .putString(K_API_HASH, next.apiHash)
             .putStringSet(K_CHANNELS, next.channelIds.map { it.toString() }.toSet())
+            .putString(K_ENGINE, next.ttsEngine)
             .putFloat(K_RATE, next.speechRate)
             .putFloat(K_PITCH, next.speechPitch)
             .putString(K_LANG, next.voiceLanguages)
@@ -87,6 +91,7 @@ class Settings(context: Context) {
         const val K_API_ID = "api_id"
         const val K_API_HASH = "api_hash"
         const val K_CHANNELS = "channel_ids"
+        const val K_ENGINE = "tts_engine"
         const val K_RATE = "speech_rate"
         const val K_PITCH = "speech_pitch"
         const val K_LANG = "voice_language"

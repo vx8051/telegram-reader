@@ -19,9 +19,14 @@ import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +41,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -50,6 +56,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
     val prefs by vm.prefs.collectAsStateWithLifecycle()
+    val engines by vm.ttsEngines.collectAsStateWithLifecycle()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -67,6 +74,15 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { SectionHeader("Voice") }
+            item {
+                GroupCard {
+                    EnginePicker(
+                        engines = engines, selected = prefs.ttsEngine,
+                        onSelect = { pkg -> vm.updatePrefs { copy(ttsEngine = pkg) } },
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
             item {
                 VoiceCard(
                     rate = prefs.speechRate, pitch = prefs.speechPitch, languages = prefs.voiceLanguages,
@@ -133,6 +149,37 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
 
             item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EnginePicker(engines: List<AppViewModel.TtsEngine>, selected: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = engines.firstOrNull { it.packageName == selected }?.label
+        ?: if (selected.isEmpty()) "System default" else selected
+    Column(modifier) {
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            OutlinedTextField(
+                value = label, onValueChange = {}, readOnly = true, singleLine = true,
+                label = { Text("Engine") },
+                leadingIcon = { Icon(Icons.Default.RecordVoiceOver, null) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                shape = MaterialTheme.shapes.small,
+                supportingText = { Text("Install RHVoice, Google Speech Services or another engine to see it here.") },
+                modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            )
+            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(text = { Text("System default") }, onClick = { onSelect(""); expanded = false })
+                engines.forEach { e ->
+                    DropdownMenuItem(
+                        text = { Column { Text(e.label); Text(e.packageName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
+                        onClick = { onSelect(e.packageName); expanded = false },
+                    )
+                }
+            }
         }
     }
 }

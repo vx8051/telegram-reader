@@ -76,6 +76,7 @@ class ReaderService : LifecycleService() {
         lifecycleScope.launch {
             app.settings.prefs.collect { p ->
                 notificationManager.notify(NOTIFICATION_ID, buildNotification())
+                speaker.engine = p.ttsEngine
                 speaker.rate = p.speechRate
                 speaker.pitch = p.speechPitch
                 speaker.defaultLocale = p.voiceLocales.firstOrNull()
