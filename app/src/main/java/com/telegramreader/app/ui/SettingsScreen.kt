@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.DoneAll
@@ -120,6 +121,23 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         Switch(prefs.leadInOnlyExternal, { v -> vm.updatePrefs { copy(leadInOnlyExternal = v) } })
                     }
 
+                }
+            }
+
+            item { SectionHeader("Filters") }
+            item {
+                GroupCard {
+                    var words by rememberSaveable { mutableStateOf(prefs.excludedWords) }
+                    OutlinedTextField(
+                        value = words, onValueChange = { words = it; vm.updatePrefs { copy(excludedWords = it) } },
+                        label = { Text("Excluded words") },
+                        placeholder = { Text("підписатись, реклама, breaking") },
+                        leadingIcon = { Icon(Icons.Default.Block, null) },
+                        supportingText = { Text("Comma- or line-separated words and phrases skipped when reading (case-insensitive, whole words). Applied to the post and the channel name.") },
+                        minLines = 2, maxLines = 6,
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    )
                 }
             }
 

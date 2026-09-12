@@ -29,12 +29,17 @@ data class Prefs(
     val radioCue: Boolean = false,
     /** Speak posts that arrived while the app was offline (TDLib delivers them in a burst on reconnect). */
     val readMissedMessages: Boolean = false,
+    /** Words/phrases (comma- or newline-separated, case-insensitive) removed from text before it is spoken. */
+    val excludedWords: String = "",
     /** Mark a post as read in Telegram once it has been spoken in full. */
     val markAsRead: Boolean = false,
     /** Restart the reader after device reboot. */
     val autoStartOnBoot: Boolean = true,
 ) {
     val hasCredentials get() = apiId != 0 && apiHash.isNotBlank()
+
+    val excludedWordList: List<String>
+        get() = excludedWords.split(',', '\n', ';').map { it.trim() }.filter { it.isNotEmpty() }
 
     val voiceLocales: List<Locale>
         get() = voiceLanguages.split(',', ';', ' ').map { it.trim() }.filter { it.isNotEmpty() }
@@ -64,6 +69,7 @@ class Settings(context: Context) {
         readMissedMessages = sp.getBoolean(K_MISSED, false),
         autoStartOnBoot = sp.getBoolean(K_BOOT, true),
         markAsRead = sp.getBoolean(K_MARK_READ, false),
+        excludedWords = sp.getString(K_EXCLUDED, "") ?: "",
     )
 
     fun edit(block: Prefs.() -> Prefs) {
@@ -83,6 +89,7 @@ class Settings(context: Context) {
             .putBoolean(K_MISSED, next.readMissedMessages)
             .putBoolean(K_BOOT, next.autoStartOnBoot)
             .putBoolean(K_MARK_READ, next.markAsRead)
+            .putString(K_EXCLUDED, next.excludedWords)
             .apply()
         _prefs.update { next }
     }
@@ -102,5 +109,6 @@ class Settings(context: Context) {
         const val K_MISSED = "read_missed"
         const val K_BOOT = "auto_start_on_boot"
         const val K_MARK_READ = "mark_as_read"
+        const val K_EXCLUDED = "excluded_words"
     }
 }

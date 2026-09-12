@@ -66,6 +66,27 @@ object MessageSpeech {
         return sb.toString()
     }
 
+    /**
+     * Removes every whole-word, case-insensitive occurrence of [words] (single words or phrases)
+     * and tidies the punctuation/whitespace left behind.
+     */
+    fun stripWords(text: String, words: List<String>): String {
+        if (words.isEmpty()) return text
+        var out = text
+        for (w in words) {
+            // (?u) enables Unicode case folding; \p{L} look-arounds keep "рада" from matching inside "порада".
+            val re = Regex("(?iu)(?<!\\p{L})" + Regex.escape(w) + "(?!\\p{L})")
+            out = out.replace(re, " ")
+        }
+        return out
+            .replace(Regex("""\s+([,.;:!?])"""), "$1")   // "word , next" -> "word, next"
+            .replace(Regex("""[,.;:!?](?:\s*[,.;:!?])+""")) { it.value.last().toString() } // ", !" -> "!"
+            .replace(multiSpace, " ")
+            .replace(Regex("""(?m)^[ ,.;:!?]+"""), "")    // punctuation stranded at line start
+            .replace(multiNewline, "\n")
+            .trim()
+    }
+
     /** Splits text into chunks below [maxLen], preferring sentence/line boundaries. */
     fun chunk(text: String, maxLen: Int): List<String> {
         if (text.length <= maxLen) return listOf(text)
