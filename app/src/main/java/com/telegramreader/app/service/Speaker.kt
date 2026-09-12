@@ -278,7 +278,7 @@ class Speaker(context: Context) {
 
         // Lead-in: play silence so Bluetooth / car audio opens its stream; then the cue; then speech.
         if (lead > 0) sounds.play(silenceSound, 1f, 1f, 1, 0, 1f)
-        if (cue) handler.postDelayed({ synchronized(lock) { if (current === next) sounds.play(cueSound, 1f, 1f, 1, 0, 1f) } }, lead.toLong())
+        if (cue) handler.postDelayed({ synchronized(lock) { if (current === next) sounds.play(cueSound, CUE_VOLUME, CUE_VOLUME, 1, 0, 1f) } }, lead.toLong())
         val speechAt = lead + (if (cue) CUE_MS else 0)
         handler.postDelayed({ synchronized(lock) { if (current === next) speakLocked(next) } }, speechAt.toLong())
     }
@@ -322,5 +322,7 @@ class Speaker(context: Context) {
         const val TAG = "Speaker"
         /** Length of res/raw/radio_cue.wav plus a small gap before speech. */
         const val CUE_MS = 500
+        /** Cue level relative to speech; the beeps are piercing at full scale. */
+        const val CUE_VOLUME = 0.75f
     }
 }
