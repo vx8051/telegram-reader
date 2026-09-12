@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.History
@@ -135,6 +136,18 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         leadingIcon = { Icon(Icons.Default.Block, null) },
                         supportingText = { Text("Comma- or line-separated words and phrases skipped when reading (case-insensitive, whole words). Applied to the post and the channel name.") },
                         minLines = 2, maxLines = 6,
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    )
+                    HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    var rules by rememberSaveable { mutableStateOf(prefs.wordReplacements) }
+                    OutlinedTextField(
+                        value = rules, onValueChange = { rules = it; vm.updatePrefs { copy(wordReplacements = it) } },
+                        label = { Text("Replacements") },
+                        placeholder = { Text("БпЛА = дрон\nППО = протиповітряна оборона") },
+                        leadingIcon = { Icon(Icons.Default.FindReplace, null) },
+                        supportingText = { Text("One rule per line: word = replacement. Case-insensitive, whole words; applied before excluded words. Handy for abbreviations the voice reads badly.") },
+                        minLines = 2, maxLines = 8,
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                     )

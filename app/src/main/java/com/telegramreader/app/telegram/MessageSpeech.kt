@@ -66,6 +66,16 @@ object MessageSpeech {
         return sb.toString()
     }
 
+    /** Whole-word, case-insensitive (Unicode) matcher; the look-arounds keep "рада" from matching inside "порада". */
+    private fun wordRegex(word: String) = Regex("(?iu)(?<!\\p{L})" + Regex.escape(word) + "(?!\\p{L})")
+
+    /** Replaces every whole-word, case-insensitive occurrence of each `from` with its `to` (abbreviations, jargon…). */
+    fun replaceWords(text: String, rules: List<Pair<String, String>>): String {
+        var out = text
+        for ((from, to) in rules) out = out.replace(wordRegex(from), Regex.escapeReplacement(to))
+        return out
+    }
+
     /**
      * Removes every whole-word, case-insensitive occurrence of [words] (single words or phrases)
      * and tidies the punctuation/whitespace left behind.
@@ -73,11 +83,7 @@ object MessageSpeech {
     fun stripWords(text: String, words: List<String>): String {
         if (words.isEmpty()) return text
         var out = text
-        for (w in words) {
-            // (?u) enables Unicode case folding; \p{L} look-arounds keep "рада" from matching inside "порада".
-            val re = Regex("(?iu)(?<!\\p{L})" + Regex.escape(w) + "(?!\\p{L})")
-            out = out.replace(re, " ")
-        }
+        for (w in words) out = out.replace(wordRegex(w), " ")
         return out
             .replace(Regex("""\s+([,.;:!?])"""), "$1")   // "word , next" -> "word, next"
             .replace(Regex("""[,.;:!?](?:\s*[,.;:!?])+""")) { it.value.last().toString() } // ", !" -> "!"

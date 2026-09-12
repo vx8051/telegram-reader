@@ -126,9 +126,10 @@ class ReaderService : LifecycleService() {
     private fun speak(body: String, chatId: Long?, ref: MessageRef? = null) {
         val prefs = app.settings.prefs.value
         val channel = chatId?.let { app.channels.titleOf(it) }
-        val spokenBody = MessageSpeech.stripWords(body, prefs.excludedWordList)
-        if (spokenBody.isBlank()) { Log.d(TAG, "Nothing left to read after excluded words"); return }
-        val spokenChannel = channel?.let { MessageSpeech.stripWords(it, prefs.excludedWordList) }?.takeIf { it.isNotBlank() }
+        fun filter(t: String) = MessageSpeech.stripWords(MessageSpeech.replaceWords(t, prefs.replacementList), prefs.excludedWordList)
+        val spokenBody = filter(body)
+        if (spokenBody.isBlank()) { Log.d(TAG, "Nothing left to read after filters"); return }
+        val spokenChannel = channel?.let(::filter)?.takeIf { it.isNotBlank() }
         val text = if (prefs.announceChannelName && spokenChannel != null) "$spokenChannel. $spokenBody" else spokenBody
         val locale = languages.choose(spokenBody, prefs.voiceLocales)
         Log.d(TAG, "Speaking from ${channel ?: "-"} [${locale ?: "default"}]: ${body.take(80)}")

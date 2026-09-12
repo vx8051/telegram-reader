@@ -31,12 +31,23 @@ data class Prefs(
     val readMissedMessages: Boolean = false,
     /** Words/phrases (comma- or newline-separated, case-insensitive) removed from text before it is spoken. */
     val excludedWords: String = "",
+    /** One rule per line, `from = to` (case-insensitive, whole-word), applied before excluded words. */
+    val wordReplacements: String = "",
     /** Mark a post as read in Telegram once it has been spoken in full. */
     val markAsRead: Boolean = false,
     /** Restart the reader after device reboot. */
     val autoStartOnBoot: Boolean = true,
 ) {
     val hasCredentials get() = apiId != 0 && apiHash.isNotBlank()
+
+    /** Parsed [wordReplacements]: lines like `БпЛА = дрон`, `ППО -> протиповітряна оборона`. */
+    val replacementList: List<Pair<String, String>>
+        get() = wordReplacements.lines().mapNotNull { line ->
+            val parts = line.split(Regex("""\s*(?:=|->|→)\s*"""), limit = 2)
+            if (parts.size != 2) return@mapNotNull null
+            val from = parts[0].trim()
+            if (from.isEmpty()) null else from to parts[1].trim()
+        }
 
     val excludedWordList: List<String>
         get() = excludedWords.split(',', '\n', ';').map { it.trim() }.filter { it.isNotEmpty() }
@@ -70,6 +81,7 @@ class Settings(context: Context) {
         autoStartOnBoot = sp.getBoolean(K_BOOT, true),
         markAsRead = sp.getBoolean(K_MARK_READ, false),
         excludedWords = sp.getString(K_EXCLUDED, "") ?: "",
+        wordReplacements = sp.getString(K_REPLACEMENTS, "") ?: "",
     )
 
     fun edit(block: Prefs.() -> Prefs) {
@@ -90,6 +102,7 @@ class Settings(context: Context) {
             .putBoolean(K_BOOT, next.autoStartOnBoot)
             .putBoolean(K_MARK_READ, next.markAsRead)
             .putString(K_EXCLUDED, next.excludedWords)
+            .putString(K_REPLACEMENTS, next.wordReplacements)
             .apply()
         _prefs.update { next }
     }
@@ -110,5 +123,6 @@ class Settings(context: Context) {
         const val K_BOOT = "auto_start_on_boot"
         const val K_MARK_READ = "mark_as_read"
         const val K_EXCLUDED = "excluded_words"
+        const val K_REPLACEMENTS = "word_replacements"
     }
 }
