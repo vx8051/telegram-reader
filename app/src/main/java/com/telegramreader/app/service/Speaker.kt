@@ -5,10 +5,14 @@ import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.SoundPool
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import com.telegramreader.app.R
 import com.telegramreader.app.telegram.MessageSpeech
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +43,14 @@ class Speaker(context: Context) {
         .setWillPauseWhenDucked(false)
         .setOnAudioFocusChangeListener { change -> onFocusChange(change) }
         .build()
+
+    private val handler = Handler(Looper.getMainLooper())
+
+    // Cue and lead-in silence are played by the app itself: TTS earcons/silent utterances are executed
+    // in the engine's process and (on Google TTS at least) never report completion.
+    private val sounds = SoundPool.Builder().setMaxStreams(2).setAudioAttributes(audioAttrs).build()
+    private val cueSound = sounds.load(appContext, R.raw.radio_cue, 1)
+    private val silenceSound = sounds.load(appContext, R.raw.silence, 1)
 
     private val lock = Any()
     private val queue = ArrayDeque<Item>()
@@ -71,6 +83,8 @@ class Speaker(context: Context) {
     @Volatile var leadInMs = 0
     /** Apply the lead-in only when audio is routed to Bluetooth / USB / car. */
     @Volatile var leadInOnlyExternal = true
+    /** Play the radio squelch/chirp cue before each item. */
+    @Volatile var radioCue = false
 
     /** Locale used when an item has none; null = device default. */
     @Volatile var defaultLocale: Locale? = null
@@ -138,6 +152,8 @@ class Speaker(context: Context) {
         current?.let { queue.addFirst(it) }
         current = null
         currentChunksLeft = 0
+        handler.removeCallbacksAndMessages(null)
+        sounds.autoPause()
         tts.stop()
         _speaking.value = null
     }
@@ -172,6 +188,8 @@ class Speaker(context: Context) {
         synchronized(lock) {
             current = null
             currentChunksLeft = 0
+            handler.removeCallbacksAndMessages(null)
+            sounds.autoPause()
             tts.stop() // triggers onDone/onError for the flushed chunks; pump guards against double-advance
             _speaking.value = null
             pumpLocked()
@@ -183,6 +201,8 @@ class Speaker(context: Context) {
             queue.clear()
             current = null
             currentChunksLeft = 0
+            handler.removeCallbacksAndMessages(null)
+            sounds.autoPause()
             tts.stop()
             _speaking.value = null
             releaseFocusLocked()
@@ -191,6 +211,7 @@ class Speaker(context: Context) {
 
     fun shutdown() {
         clear()
+        sounds.release()
         tts.shutdown()
     }
 
@@ -221,20 +242,27 @@ class Speaker(context: Context) {
         } else if (focusLost) return
         val next = queue.pollFirst()!!
         applyLanguage(next.locale)
-        val chunks = MessageSpeech.chunk(next.text, TextToSpeech.getMaxSpeechInputLength() - 1)
         current = next
-        currentChunksLeft = chunks.size
         _speaking.value = next
-        // Bluetooth / car audio links drop the first fraction of a second after a stream starts; lead with silence.
+
         val lead = leadInMs.takeIf { it > 0 && (!leadInOnlyExternal || isExternalOutput()) } ?: 0
-        if (lead > 0) {
-            if (tts.playSilentUtterance(lead.toLong(), TextToSpeech.QUEUE_ADD, "${next.id}-lead") == TextToSpeech.SUCCESS) {
-                currentChunksLeft++
-            }
-        }
+        val cue = radioCue
+        if (lead == 0 && !cue) { speakLocked(next); return }
+
+        // Lead-in: play silence so Bluetooth / car audio opens its stream; then the cue; then speech.
+        if (lead > 0) sounds.play(silenceSound, 1f, 1f, 1, 0, 1f)
+        if (cue) handler.postDelayed({ synchronized(lock) { if (current === next) sounds.play(cueSound, 1f, 1f, 1, 0, 1f) } }, lead.toLong())
+        val speechAt = lead + (if (cue) CUE_MS else 0)
+        handler.postDelayed({ synchronized(lock) { if (current === next) speakLocked(next) } }, speechAt.toLong())
+    }
+
+    /** Queues [item]'s text into the TTS engine; must hold [lock] and have `current === item`. */
+    private fun speakLocked(item: Item) {
+        val chunks = MessageSpeech.chunk(item.text, TextToSpeech.getMaxSpeechInputLength() - 1)
+        currentChunksLeft = chunks.size
+        val params = Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC) }
         chunks.forEachIndexed { i, chunk ->
-            val params = Bundle().apply { putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC) }
-            val r = tts.speak(chunk, TextToSpeech.QUEUE_ADD, params, "${next.id}-$i")
+            val r = tts.speak(chunk, TextToSpeech.QUEUE_ADD, params, "${item.id}-$i")
             if (r != TextToSpeech.SUCCESS) {
                 Log.w(TAG, "speak() returned $r")
                 currentChunksLeft--
@@ -263,5 +291,9 @@ class Speaker(context: Context) {
         focusLost = false
     }
 
-    private companion object { const val TAG = "Speaker" }
+    private companion object {
+        const val TAG = "Speaker"
+        /** Length of res/raw/radio_cue.wav plus a small gap before speech. */
+        const val CUE_MS = 500
+    }
 }

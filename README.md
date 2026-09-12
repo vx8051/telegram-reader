@@ -83,7 +83,7 @@ Notes:
 ```sh
 ./scripts/fetch-tdlib.sh          # once: downloads app/libs/tdlib.aar
 ./gradlew assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 ```
 
 Release builds are split per ABI (`assembleRelease` → `app/build/outputs/apk/release/`):

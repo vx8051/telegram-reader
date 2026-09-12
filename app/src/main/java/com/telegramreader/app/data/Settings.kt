@@ -23,6 +23,8 @@ data class Prefs(
     val leadInMs: Int = 700,
     /** Apply the lead-in only when a Bluetooth / USB / car output is connected. */
     val leadInOnlyExternal: Boolean = true,
+    /** Play a two-way-radio squelch/chirp before each post. */
+    val radioCue: Boolean = false,
     /** Speak posts that arrived while the app was offline (TDLib delivers them in a burst on reconnect). */
     val readMissedMessages: Boolean = false,
     /** Mark a post as read in Telegram once it has been spoken in full. */
@@ -55,6 +57,7 @@ class Settings(context: Context) {
         announceChannelName = sp.getBoolean(K_ANNOUNCE, true),
         leadInMs = sp.getInt(K_LEAD_IN, 700),
         leadInOnlyExternal = sp.getBoolean(K_LEAD_IN_EXT, true),
+        radioCue = sp.getBoolean(K_RADIO_CUE, false),
         readMissedMessages = sp.getBoolean(K_MISSED, false),
         autoStartOnBoot = sp.getBoolean(K_BOOT, true),
         markAsRead = sp.getBoolean(K_MARK_READ, false),
@@ -72,6 +75,7 @@ class Settings(context: Context) {
             .putBoolean(K_ANNOUNCE, next.announceChannelName)
             .putInt(K_LEAD_IN, next.leadInMs)
             .putBoolean(K_LEAD_IN_EXT, next.leadInOnlyExternal)
+            .putBoolean(K_RADIO_CUE, next.radioCue)
             .putBoolean(K_MISSED, next.readMissedMessages)
             .putBoolean(K_BOOT, next.autoStartOnBoot)
             .putBoolean(K_MARK_READ, next.markAsRead)
@@ -89,6 +93,7 @@ class Settings(context: Context) {
         const val K_ANNOUNCE = "announce_channel"
         const val K_LEAD_IN = "lead_in_ms"
         const val K_LEAD_IN_EXT = "lead_in_only_external"
+        const val K_RADIO_CUE = "radio_cue"
         const val K_MISSED = "read_missed"
         const val K_BOOT = "auto_start_on_boot"
         const val K_MARK_READ = "mark_as_read"

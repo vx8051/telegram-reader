@@ -81,6 +81,7 @@ class ReaderService : LifecycleService() {
                 speaker.defaultLocale = p.voiceLocales.firstOrNull()
                 speaker.leadInMs = p.leadInMs
                 speaker.leadInOnlyExternal = p.leadInOnlyExternal
+                speaker.radioCue = p.radioCue
             }
         }
         // Hold a wake lock only while actually speaking, and mirror pause state to the notification.

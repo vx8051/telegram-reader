@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -102,12 +103,17 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                     SettingRow(Icons.Default.Headset, "Only on external audio", "Skip the pause when playing through the phone speaker") {
                         Switch(prefs.leadInOnlyExternal, { v -> vm.updatePrefs { copy(leadInOnlyExternal = v) } })
                     }
+
                 }
             }
 
             item { SectionHeader("Behaviour") }
             item {
                 GroupCard {
+                    SettingRow(Icons.Default.Radio, "Notification cue", "Play a PDA-style notification beep before each post") {
+                        Switch(prefs.radioCue, { v -> vm.updatePrefs { copy(radioCue = v) } })
+                    }
+                    HorizontalDivider(Modifier.padding(start = 66.dp), color = MaterialTheme.colorScheme.outlineVariant)
                     SettingRow(Icons.Default.Campaign, "Announce channel name", "Say which channel a post is from") {
                         Switch(prefs.announceChannelName, { v -> vm.updatePrefs { copy(announceChannelName = v) } })
                     }
