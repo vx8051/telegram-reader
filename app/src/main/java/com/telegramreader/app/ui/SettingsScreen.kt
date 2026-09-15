@@ -113,7 +113,7 @@ fun SettingsScreen(vm: AppViewModel, onBack: () -> Unit) {
                         }
                         Slider(
                             value = prefs.leadInMs.toFloat(), onValueChange = { v -> vm.updatePrefs { copy(leadInMs = (v / 100).toInt() * 100) } },
-                            valueRange = 0f..2000f, steps = 19, modifier = Modifier.padding(start = 50.dp),
+                            valueRange = 0f..3000f, steps = 29, modifier = Modifier.padding(start = 50.dp),
                             colors = SliderDefaults.colors(inactiveTickColor = Color.Transparent, activeTickColor = Color.Transparent),
                         )
                     }

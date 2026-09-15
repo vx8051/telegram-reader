@@ -272,11 +272,14 @@ class Speaker(context: Context) {
         current = next
         _speaking.value = next
 
-        val lead = leadInMs.takeIf { it > 0 && (!leadInOnlyExternal || isExternalOutput()) } ?: 0
+        val external = isExternalOutput()
+        val lead = leadInMs.takeIf { it > 0 && (!leadInOnlyExternal || external) } ?: 0
         val cue = radioCue
+        Log.d(TAG, "outputs=${outputTypes()} external=$external leadIn=${lead}ms cue=$cue")
         if (lead == 0 && !cue) { speakLocked(next); return }
 
-        // Lead-in: play silence so Bluetooth / car audio opens its stream; then the cue; then speech.
+        // Lead-in: play near-silent noise (not digital zeros — signal-gated head units ignore those) so
+        // Bluetooth / car audio opens and unmutes its stream; then the cue; then speech.
         if (lead > 0) sounds.play(silenceSound, 1f, 1f, 1, 0, 1f)
         if (cue) handler.postDelayed({ synchronized(lock) { if (current === next) sounds.play(cueSound, CUE_VOLUME, CUE_VOLUME, 1, 0, 1f) } }, lead.toLong())
         val speechAt = lead + (if (cue) CUE_MS else 0)
@@ -297,6 +300,9 @@ class Speaker(context: Context) {
         }
         if (currentChunksLeft <= 0) { current = null; _speaking.value = null; pumpLocked() }
     }
+
+    private fun outputTypes(): String =
+        audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).joinToString { "${it.type}:${it.productName}" }
 
     private fun isExternalOutput(): Boolean =
         audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
